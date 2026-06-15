@@ -38,13 +38,13 @@ openclaw mcp add keenable \
       "keenable": {
         "config": {
           "webSearch": {
-            "apiKey": "keen_...",     // or KEENABLE_API_KEY env var
-            "mode": "pro",            // "pro" (default) | "realtime"
-            "baseUrl": "https://api.keenable.ai"
-          }
-        }
-      }
-    }
-  }
+            "apiKey": "keen_...", // or KEENABLE_API_KEY env var
+            "mode": "pro", // "pro" (default) | "realtime"
+            "baseUrl": "https://api.keenable.ai",
+          },
+        },
+      },
+    },
+  },
 }
 ```

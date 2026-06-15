@@ -21,7 +21,9 @@ export function resolveLegacyTopLevelKeenableCredential(
   return { path: "tools.web.search.apiKey", value: search.apiKey };
 }
 
-function resolveKeenableWebSearchPluginConfig(config: unknown): Record<string, unknown> | undefined {
+function resolveKeenableWebSearchPluginConfig(
+  config: unknown,
+): Record<string, unknown> | undefined {
   if (!isRecord(config)) {
     return undefined;
   }
