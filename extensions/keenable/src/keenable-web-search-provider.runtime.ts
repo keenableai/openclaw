@@ -8,6 +8,7 @@ import {
   DEFAULT_SEARCH_COUNT,
   formatCliCommand,
   MAX_SEARCH_COUNT,
+  parseIsoDateRange,
   readCachedSearchPayload,
   readConfiguredSecretString,
   readPositiveIntegerParam,
@@ -200,7 +201,10 @@ async function runKeenableWebSearch(params: {
         durationMs: Date.now() - startedAt,
       });
       await assertOkOrThrowProviderError(response, "Keenable Search API error");
-      return readProviderJsonResponse<KeenableSearchResponse>(response, "Keenable Search API error");
+      return readProviderJsonResponse<KeenableSearchResponse>(
+        response,
+        "Keenable Search API error",
+      );
     },
   );
 
@@ -242,32 +246,19 @@ export async function executeKeenableSearch(
     undefined;
   const site = readStringParam(args, "site");
 
-  // Keenable filters by publication date (not a freshness bucket), so validate
-  // YYYY-MM-DD bounds locally rather than via the brave/perplexity-only helper.
-  const dateRe = /^\d{4}-\d{2}-\d{2}$/u;
-  const dateAfter = readStringParam(args, "date_after");
-  const dateBefore = readStringParam(args, "date_before");
-  if (dateAfter && !dateRe.test(dateAfter)) {
-    return {
-      error: "invalid_date_after",
-      message: "date_after must be YYYY-MM-DD format.",
-      docs: "https://docs.openclaw.ai/tools/web",
-    };
+  // Keenable filters by publication date (not a freshness bucket), so use the
+  // provider-agnostic ISO date-range parser (validates real dates + ordering).
+  const parsedDateRange = parseIsoDateRange({
+    rawDateAfter: readStringParam(args, "date_after"),
+    rawDateBefore: readStringParam(args, "date_before"),
+    invalidDateAfterMessage: "date_after must be YYYY-MM-DD format.",
+    invalidDateBeforeMessage: "date_before must be YYYY-MM-DD format.",
+    invalidDateRangeMessage: "date_after must be before date_before.",
+  });
+  if ("error" in parsedDateRange) {
+    return parsedDateRange;
   }
-  if (dateBefore && !dateRe.test(dateBefore)) {
-    return {
-      error: "invalid_date_before",
-      message: "date_before must be YYYY-MM-DD format.",
-      docs: "https://docs.openclaw.ai/tools/web",
-    };
-  }
-  if (dateAfter && dateBefore && dateAfter > dateBefore) {
-    return {
-      error: "invalid_date_range",
-      message: "date_after must be before date_before.",
-      docs: "https://docs.openclaw.ai/tools/web",
-    };
-  }
+  const { dateAfter, dateBefore } = parsedDateRange;
 
   const resolvedCount = resolveSearchCount(count, DEFAULT_SEARCH_COUNT);
   const cacheKey = buildSearchCacheKey([
