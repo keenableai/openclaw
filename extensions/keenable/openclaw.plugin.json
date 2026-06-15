@@ -16,8 +16,8 @@
   },
   "uiHints": {
     "webSearch.apiKey": {
-      "label": "Keenable API Key",
-      "help": "Keenable API key (fallback: KEENABLE_API_KEY env var). Create one at https://keenable.ai/console.",
+      "label": "Keenable API Key (optional)",
+      "help": "Optional — search works keyless (rate-limited). Add a key (or KEENABLE_API_KEY env var) to raise limits. Create one at https://keenable.ai/console.",
       "sensitive": true,
       "placeholder": "keen_..."
     },

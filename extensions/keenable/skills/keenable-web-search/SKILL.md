@@ -19,6 +19,5 @@ citable information from the web.
 Each result has a title, URL, and snippet. Snippets are starting points — open
 the URL (e.g. with web fetch) before relying on a claim, and cite the source.
 
-Keyless option: without an API key, add the Keenable MCP server instead
-(`openclaw mcp add keenable --url https://api.keenable.ai/mcp --transport
-streamable-http`) for rate-limited public access.
+Keyless by default: works with no API key (rate-limited public endpoint). Set
+`KEENABLE_API_KEY` to raise the limits.

@@ -6,7 +6,6 @@ import type { SearchConfigRecord } from "openclaw/plugin-sdk/provider-web-search
 import {
   buildSearchCacheKey,
   DEFAULT_SEARCH_COUNT,
-  formatCliCommand,
   MAX_SEARCH_COUNT,
   parseIsoDateRange,
   readCachedSearchPayload,
@@ -32,7 +31,12 @@ import {
 } from "openclaw/plugin-sdk/ssrf-runtime";
 
 const DEFAULT_KEENABLE_BASE_URL = "https://api.keenable.ai";
+// With an API key → authenticated endpoint (higher limits); without → the
+// public keyless endpoint (rate-limited). Both accept the same params/response.
 const KEENABLE_SEARCH_ENDPOINT_PATH = "/v1/search";
+const KEENABLE_PUBLIC_SEARCH_ENDPOINT_PATH = "/v1/search/public";
+// Traffic attribution (Keenable records this via the X-Keenable-Title header).
+const KEENABLE_APP_TITLE = "OpenClaw";
 const keenableHttpLogger = createSubsystemLogger("keenable/http");
 type KeenableEndpointMode = "selfHosted" | "strict";
 
@@ -95,10 +99,10 @@ function resolveKeenableMode(keenableConfig: KeenableConfig): "pro" | "realtime"
   return keenableConfig.mode === "realtime" ? "realtime" : "pro";
 }
 
-function buildKeenableEndpointUrl(baseUrl: string): URL {
+function buildKeenableEndpointUrl(baseUrl: string, endpointPath: string): URL {
   const url = new URL(baseUrl);
   const basePath = url.pathname.replace(/\/+$/u, "");
-  url.pathname = `${basePath}${KEENABLE_SEARCH_ENDPOINT_PATH}`;
+  url.pathname = `${basePath}${endpointPath}`;
   url.search = "";
   return url;
 }
@@ -138,28 +142,23 @@ async function validateKeenableBaseUrl(baseUrl: string): Promise<KeenableEndpoin
   return (await keenableEndpointTargetsPrivateNetwork(parsed)) ? "selfHosted" : "strict";
 }
 
-function missingKeenableKeyPayload() {
-  return {
-    error: "missing_keenable_api_key",
-    message: `web_search (keenable) needs a Keenable API key. Run \`${formatCliCommand("openclaw configure --section web")}\` to store it, or set KEENABLE_API_KEY in the Gateway environment. Keyless access is available via the Keenable MCP server (\`openclaw mcp add keenable --url https://api.keenable.ai/mcp --transport streamable-http\`).`,
-    docs: "https://docs.openclaw.ai/tools/web",
-  };
-}
-
 async function runKeenableWebSearch(params: {
   baseUrl: string;
   endpointMode: KeenableEndpointMode;
   query: string;
   count: number;
   mode: "pro" | "realtime";
-  apiKey: string;
+  apiKey?: string;
   timeoutSeconds: number;
   diagnostics?: KeenableHttpDiagnostics;
   site?: string;
   dateAfter?: string;
   dateBefore?: string;
 }): Promise<Array<Record<string, unknown>>> {
-  const url = buildKeenableEndpointUrl(params.baseUrl);
+  const endpointPath = params.apiKey
+    ? KEENABLE_SEARCH_ENDPOINT_PATH
+    : KEENABLE_PUBLIC_SEARCH_ENDPOINT_PATH;
+  const url = buildKeenableEndpointUrl(params.baseUrl, endpointPath);
   url.searchParams.set("query", params.query);
   url.searchParams.set("mode", params.mode);
   if (params.site) {
@@ -174,6 +173,7 @@ async function runKeenableWebSearch(params: {
 
   logKeenableHttp(params.diagnostics, "request", {
     mode: params.mode,
+    keyed: Boolean(params.apiKey),
     url: url.toString(),
   });
   const startedAt = Date.now();
@@ -182,16 +182,21 @@ async function runKeenableWebSearch(params: {
       ? withSelfHostedWebSearchEndpoint
       : withTrustedWebSearchEndpoint;
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Keenable-Title": KEENABLE_APP_TITLE,
+  };
+  if (params.apiKey) {
+    headers["X-API-Key"] = params.apiKey;
+  }
+
   const data = await withEndpoint(
     {
       url: url.toString(),
       timeoutSeconds: params.timeoutSeconds,
       init: {
         method: "GET",
-        headers: {
-          Accept: "application/json",
-          "X-API-Key": params.apiKey,
-        },
+        headers,
       },
     },
     async (response) => {
@@ -227,10 +232,9 @@ export async function executeKeenableSearch(
   searchConfig?: SearchConfigRecord,
   options?: { diagnosticsEnabled?: boolean },
 ): Promise<Record<string, unknown>> {
+  // Key is optional: present → authenticated endpoint (higher limits);
+  // absent → public keyless endpoint (rate-limited). Either way the search runs.
   const apiKey = resolveKeenableApiKey(searchConfig);
-  if (!apiKey) {
-    return missingKeenableKeyPayload();
-  }
 
   const keenableConfig = resolveKeenableConfig(searchConfig);
   const baseUrl = resolveKeenableBaseUrl(keenableConfig);
@@ -263,6 +267,7 @@ export async function executeKeenableSearch(
   const resolvedCount = resolveSearchCount(count, DEFAULT_SEARCH_COUNT);
   const cacheKey = buildSearchCacheKey([
     "keenable",
+    apiKey ? "keyed" : "public",
     mode,
     baseUrl,
     query,

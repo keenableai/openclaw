@@ -45,9 +45,12 @@ export function buildKeenableWebSearchProviderBase(): Omit<WebSearchProviderPlug
   return {
     id: "keenable",
     label: "Keenable",
-    hint: "AI web search · pro/realtime modes · site & date filters",
+    hint: "AI web search · keyless by default · key lifts rate limits",
     onboardingScopes: ["text-inference"],
-    credentialLabel: "Keenable API key",
+    // Works keyless (public rate-limited endpoint); an API key is optional and
+    // only raises limits — so onboarding must not force a credential.
+    requiresCredential: false,
+    credentialLabel: "Keenable API key (optional — lifts rate limits)",
     envVars: ["KEENABLE_API_KEY"],
     placeholder: "keen_...",
     signupUrl: "https://keenable.ai/console",

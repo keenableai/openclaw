@@ -8,26 +8,19 @@ optional `mode` (pro/realtime), `site`, and date filters.
 
 ## Setup
 
-The provider calls Keenable's search API and needs an API key:
+**Keyless by default** — the provider works with no API key, calling Keenable's
+public search endpoint (rate-limited). Just select it as your web search
+provider.
+
+To raise the rate limits, add an API key (optional):
 
 ```bash
 openclaw configure --section web   # store the Keenable API key
 # or set KEENABLE_API_KEY in the Gateway environment
 ```
 
-Create a key at https://keenable.ai/console.
-
-## Keyless option (MCP)
-
-Keenable's MCP endpoint has a keyless public mode (rate-limited). For zero-setup
-access without an API key, add it as an MCP server instead of using this
-provider:
-
-```bash
-openclaw mcp add keenable \
-  --url https://api.keenable.ai/mcp \
-  --transport streamable-http
-```
+Create a key at https://keenable.ai/console. With a key the provider uses the
+authenticated endpoint; without one it uses the public keyless endpoint.
 
 ## Config
 

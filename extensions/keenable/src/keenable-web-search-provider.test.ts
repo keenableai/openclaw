@@ -103,18 +103,29 @@ describe("keenable web search provider", () => {
     });
   });
 
-  it("returns a missing-key payload that points to the keyless MCP route", async () => {
+  it("runs keyless against the public endpoint when no API key is set", async () => {
     vi.stubEnv("KEENABLE_API_KEY", "");
+    const mockFetch = installResultsFetch([
+      { title: "Result", url: "https://example.com/a", snippet: "snip" },
+    ]);
+
     const provider = createKeenableWebSearchProvider();
     const tool = provider.createTool({ config: {}, searchConfig: {} });
     if (!tool) {
       throw new Error("Expected tool definition");
     }
 
-    const result = await tool.execute({ query: "openclaw docs" });
+    const result = (await tool.execute({ query: "openclaw docs" })) as { provider: string };
 
-    expect(result).toMatchObject({ error: "missing_keenable_api_key" });
-    expect((result as { message: string }).message).toContain("openclaw mcp add keenable");
+    const requestUrl = fetchRequestUrl(mockFetch);
+    expect(requestUrl.pathname).toBe("/v1/search/public");
+    expect(readHeader(fetchCall(mockFetch)[1], "X-API-Key")).toBeNull();
+    expect(readHeader(fetchCall(mockFetch)[1], "X-Keenable-Title")).toBe("OpenClaw");
+    expect(result.provider).toBe("keenable");
+  });
+
+  it("declares the credential optional (keyless-capable provider)", () => {
+    expect(createKeenableWebSearchProvider().requiresCredential).toBe(false);
   });
 
   it("accepts mode and baseUrl in the plugin config schema", () => {
