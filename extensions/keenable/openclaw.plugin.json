@@ -1,0 +1,62 @@
+{
+  "id": "keenable",
+  "name": "Keenable",
+  "description": "OpenClaw Keenable web search provider plugin.",
+  "activation": {
+    "onStartup": false
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "keenable",
+        "authMethods": ["api-key"],
+        "envVars": ["KEENABLE_API_KEY"]
+      }
+    ]
+  },
+  "uiHints": {
+    "webSearch.apiKey": {
+      "label": "Keenable API Key",
+      "help": "Keenable API key (fallback: KEENABLE_API_KEY env var). Create one at https://keenable.ai/console.",
+      "sensitive": true,
+      "placeholder": "keen_..."
+    },
+    "webSearch.mode": {
+      "label": "Keenable Search Mode",
+      "help": "Keenable search mode: pro (default, higher quality) or realtime (fastest)."
+    },
+    "webSearch.baseUrl": {
+      "label": "Keenable Base URL",
+      "help": "Optional Keenable-compatible API base URL for trusted proxies. Defaults to https://api.keenable.ai."
+    }
+  },
+  "contracts": {
+    "webSearchProviders": ["keenable"]
+  },
+  "configContracts": {
+    "compatibilityRuntimePaths": ["tools.web.search.apiKey"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "webSearch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "apiKey": {
+            "type": ["string", "object"]
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["pro", "realtime"]
+          },
+          "baseUrl": {
+            "type": ["string", "object"]
+          }
+        }
+      }
+    }
+  },
+  "skills": ["./skills"]
+}
