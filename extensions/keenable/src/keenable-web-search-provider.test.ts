@@ -71,6 +71,27 @@ function installResultsFetch(results: Array<Record<string, unknown>>) {
   return mockFetch;
 }
 
+function install429Fetch() {
+  const bytes = new TextEncoder().encode("rate limited");
+  const mockFetch = vi.fn(
+    async () =>
+      ({
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+        headers: new Headers(),
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(bytes);
+            controller.close();
+          },
+        }),
+      }) as unknown as Response,
+  );
+  global.fetch = mockFetch as typeof global.fetch;
+  return mockFetch;
+}
+
 describe("keenable web search provider", () => {
   const priorFetch = global.fetch;
 
@@ -126,6 +147,21 @@ describe("keenable web search provider", () => {
 
   it("declares the credential optional (keyless-capable provider)", () => {
     expect(createKeenableWebSearchProvider().requiresCredential).toBe(false);
+  });
+
+  it("turns a keyless 429 into an add-a-key hint", async () => {
+    vi.stubEnv("KEENABLE_API_KEY", "");
+    install429Fetch();
+    const provider = createKeenableWebSearchProvider();
+    const tool = provider.createTool({ config: {}, searchConfig: {} });
+    if (!tool) {
+      throw new Error("Expected tool definition");
+    }
+
+    const result = await tool.execute({ query: "anything" });
+
+    expect(result).toMatchObject({ error: "keenable_rate_limited" });
+    expect((result as { message: string }).message).toContain("KEENABLE_API_KEY");
   });
 
   it("accepts mode and baseUrl in the plugin config schema", () => {

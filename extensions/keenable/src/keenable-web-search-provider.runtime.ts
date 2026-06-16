@@ -288,19 +288,35 @@ export async function executeKeenableSearch(
   const timeoutSeconds = resolveSearchTimeoutSeconds(searchConfig);
   const cacheTtlMs = resolveSearchCacheTtlMs(searchConfig);
 
-  const results = await runKeenableWebSearch({
-    baseUrl,
-    endpointMode,
-    query,
-    count: resolvedCount,
-    mode,
-    apiKey,
-    timeoutSeconds,
-    diagnostics,
-    site: site ?? undefined,
-    dateAfter,
-    dateBefore,
-  });
+  let results: Array<Record<string, unknown>>;
+  try {
+    results = await runKeenableWebSearch({
+      baseUrl,
+      endpointMode,
+      query,
+      count: resolvedCount,
+      mode,
+      apiKey,
+      timeoutSeconds,
+      diagnostics,
+      site: site ?? undefined,
+      dateAfter,
+      dateBefore,
+    });
+  } catch (err) {
+    // Keyless traffic is rate-limited; turn a 429 into an actionable hint
+    // instead of a raw provider error (the SDK formats status as "(429)").
+    const message = err instanceof Error ? err.message : String(err);
+    if (!apiKey && message.includes("(429)")) {
+      return {
+        error: "keenable_rate_limited",
+        message:
+          "Keenable keyless search hit its rate limit. Set KEENABLE_API_KEY (https://keenable.ai/console) to raise the limits.",
+        docs: "https://docs.openclaw.ai/tools/web",
+      };
+    }
+    throw err;
+  }
 
   const payload = {
     query,
